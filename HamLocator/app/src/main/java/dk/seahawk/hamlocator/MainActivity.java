@@ -1,50 +1,45 @@
 package dk.seahawk.hamlocator;
 
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
+import static com.google.android.gms.location.LocationRequest.*;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
-import android.location.LocationManager;
-import android.location.LocationRequest;
 import android.os.Bundle;
-import android.os.Looper;
-import android.provider.Settings;
+import android.os.Handler;
+import android.text.Html;
+import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationListener;
-
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.google.android.gms.location.Priority;
 
-import java.text.DateFormat;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
+import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
+import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
-import dk.seahawk.hamlocator.util.LocationHistory;
 
 public class MainActivity extends AppCompatActivity {
+    private FusedLocationProviderClient fusedLocationProviderClient;
+    private LocationCallback locationCallback;
+    private GridAlgorithmInterface gridAlgorithmInterface;
+    private CoordinateConverterInterface coordinateConverterInterface;
 
-
-    private CoordinateConverter coordinateConverter = new CoordinateConverter();
-    private LocationHistory locationHistory;
     /**
      * LocationRequest
      *
@@ -57,211 +52,160 @@ public class MainActivity extends AppCompatActivity {
      *                          PRIORITY_LOW_POWER (104) - Used to request "city" level accuracy.
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
-
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
     private int interval = 10000;
     private int fastInterval = 5000;
-    private int priority = LocationRequest.QUALITY_HIGH_ACCURACY;
 
-    private GridAlgorithmInterface gridAlgorithm;
-    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField;
-    private String TAG = "Locator";
 
-    /**
-     * Solved issue:
-     * https://stackoverflow.com/questions/29441384/fusedlocationapi-getlastlocation-always-null
-     * https://stackoverflow.com/questions/61777386/fusedlocationclient-getlastlocation-always-returns-null
-     */
-    private FusedLocationProviderClient fusedLocationProviderClient;
-    private com.google.android.gms.location.LocationRequest locationRequest;
-    private Location lastKnownLocation;
+    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField, linkField;
+    private String TAG = "MainLocatorActivity";
+    private String lastLocation = "na";
+    private double lastLongitude = 0;
+    private double lastLatitude = 0;
+    private double lastAltitude = 0;
 
+    private Handler handler;
+    private Runnable updateTimeRunnable;
+
+
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Initialize location client
-        // My issue has been that i generated a new fusedLocationProviderClient, not calling it from LocationServices
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-        gridAlgorithm = new GridAlgorithm();
-
-
         setContentView(R.layout.activity_main);
 
-        /*
-            // Initialize location client
-            // My issue has been that i generated a new fusedLocationProviderClient, not calling it from LocationServices
-            fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(requireActivity());
-            gridAlgorithm = new GridAlgorithm();
-            locationHistory = locationHistory.getInstance();
+        // Initialize view, Location
+        jidField = findViewById(R.id.txt_jid);
+        lonField = findViewById(R.id.txt_longitude);
+        latField = findViewById(R.id.txt_latitude);
+        altField = findViewById(R.id.txt_altitude);
+        nsLonField = findViewById(R.id.txt_lon_dms_ns);
+        ewLatField = findViewById(R.id.txt_lat_dms_ew);
 
-            // Initialize view
-            binding = FragmentLocatorBinding.inflate(inflater, container, false);
-            View root = binding.getRoot();
-            jidField = root.findViewById(R.id.txt_jid);
-            lonField = root.findViewById(R.id.txt_longitude);
-            latField = root.findViewById(R.id.txt_latitude);
-            altField = root.findViewById(R.id.txt_altitude);
-            nsLonField = root.findViewById(R.id.txt_lon_dms_ns);
-            ewLatField = root.findViewById(R.id.txt_lat_dms_ew);
+        // Initialize view, Location
+        localTimeField = findViewById(R.id.txt_localTime);
+        utcTimeField = findViewById(R.id.txt_utcTime);
 
-            checkCondition();
+        // Initialize view, Link
+        linkField = findViewById(R.id.txt_link);
 
-            FloatingActionButton fab = root.findViewById(R.id.fab);
-            fab.setOnClickListener(v -> setPlaceholderItem(lastKnownLocation));
+        // Initialize Maidenhead algorithm
+        gridAlgorithmInterface = new GridAlgorithm();
+        coordinateConverterInterface = new CoordinateConverter();
 
-         */
+        // Initialize the FusedLocationProviderClient
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+
+        // Initialize the LocationCallback
+        locationCallback = new LocationCallback() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult != null) {
+                    Location location = locationResult.getLastLocation();
+
+                    // Update location parameters
+                    lastLocation = gridAlgorithmInterface.getGridLocation(location);
+                    lastLatitude = location.getLatitude();
+                    lastLongitude = location.getLongitude();
+                    lastAltitude = location.getAltitude();
+
+                    jidField.setText(lastLocation);
+                    lonField.setText("lon: " + lastLongitude);
+                    latField.setText("lat: " + lastLatitude);
+                    altField.setText("alt: " + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " m");
+                    nsLonField.setText("lon dms: " + coordinateConverterInterface.getLon(lastLongitude));
+                    ewLatField.setText("lat dms: " + coordinateConverterInterface.getLat(lastLatitude));
+                }
+            }
+        };
+
+        // Check for location permission and request if not granted
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            // Request location updates
+            startLocationUpdates();
+        }
+
+        handler = new Handler();
+        updateTimeRunnable = new Runnable() {
+            @Override
+            public void run() {
+                updateTimes();
+                handler.postDelayed(this, 1000); // Update every 1 second
+            }
+        };
+
+        linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
+        linkField.setMovementMethod(LinkMovementMethod.getInstance());
+
     }
-
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        // Check condition
-        if (requestCode == priority && (grantResults.length > 0) && (grantResults[0] + grantResults[1] == PackageManager.PERMISSION_GRANTED)) {
-            // When permission are granted
-            Log.d(TAG, "Success: settingsCheck");
-            getCurrentLocation();
-        } else {
-            // When permission are denied, Display toast
-            Log.d(TAG, "Fail: settingsCheck, Permission denied");
-            Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private void getCurrentLocation() {
-        // Initialize Location manager
-        LocationManager locationManager = (LocationManager)this.getSystemService(Context.LOCATION_SERVICE);
-        // Check condition
-        if (locationManager.isProviderEnabled(
-                LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
-            // When location service is enabled
-            fusedLocationProviderClient.getLastLocation().addOnCompleteListener(task -> {
-                // Initialize location
-                Location location = task.getResult();
-                // Check condition
-                if (location != null) {
-                    Log.d(TAG, "Success: latitude " + location.getLatitude() + " longitude " + location.getLongitude());
-                    updatedLocation(location);
-                } else {
-                    Log.d(TAG, "location is null");
-                    setLocationRequest();
-                    setLocationCallback();
-                }
-            });
-        } else {
-            // When location service is not enabled, open location setting
-            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-        }
-    }
-
-    private void setLocationRequest() {
-        // When location result is null, initialize location request
-        locationRequest = com.google.android.gms.location.LocationRequest.create();
-        locationRequest.setPriority(priority);
-        locationRequest.setInterval(interval);
-        locationRequest.setFastestInterval(fastInterval);
-        locationRequest.setNumUpdates(1);
-        Log.d(TAG, "locationRequest is set");
-    }
-
-    @SuppressLint("MissingPermission")
-    private void setLocationCallback() {
-        // Initialize location call back
-        LocationCallback locationCallback = new LocationCallback() {
-            @Override
-            public void
-            onLocationResult(LocationResult locationResult) {
-                // Initialize location
-                Location location = locationResult.getLastLocation();
-                updatedLocation(location);
-            }
-        };
-        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, Looper.myLooper());
-    }
-
-    private void checkCondition() {
-        // check condition
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
-                && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            // When permission is granted
-            getCurrentLocation();
-           // Log.d(TAG, "location permissions granted");
-        } else {
-            // When permission is not granted
-            requestPermissions( new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }, 100);
-           // Log.d(TAG, "location permissions denied");
-        }
-    }
-
-    private void updatedLocation(@NonNull Location location) {
-        this.lastKnownLocation = location;
-        jidField.setText(gridAlgorithm.getGridLocation(location));
-        lonField.setText(coordinateConverter.fiveDigitsDoubleToString(location.getLongitude()));
-        latField.setText(coordinateConverter.fiveDigitsDoubleToString(location.getLatitude()));
-        altField.setText(coordinateConverter.twoDigitsDoubleToString(location.getAltitude()));
-        nsLonField.setText(coordinateConverter.getLon(location.getLongitude()));
-        ewLatField.setText(coordinateConverter.getLat(location.getLatitude()));
-
-        Log.d(TAG, "location updated in layout");
-    }
-
-    public void onLocationChanged(@NonNull Location location) {
-        updatedLocation(location);
-        Log.d(TAG, "location changed");
-    }
-
-    private void setPlaceholderItem(Location location) {
-        if(location != null) {
-            String dateTimeFormat = "HH:mm:ssZZ dd/mm/yyyy";
-            String utc = "Etc/UTC"; // https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-            String localTime, utcTime;
-
-            // NOTE: minimum SDK 26 / Android 8.0
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-                DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimeFormat);  // API level 26
-                ZonedDateTime currentTimeLocal = ZonedDateTime.now();                               // API level 26
-                ZonedDateTime currentTimeUTC = currentTimeLocal.withZoneSameLocal(ZoneId.of(utc));  // API level 26
-
-                localTime = "local:" + dateTimeFormatter.format(currentTimeLocal);
-                utcTime = "  utc:" + dateTimeFormatter.format(currentTimeUTC);
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, start location updates
+                startLocationUpdates();
             } else {
-                TimeZone utcTimeZone = TimeZone.getTimeZone(utc);
-                Calendar calendar = java.util.Calendar.getInstance();              // API level 1
-
-                localTime = getTimeLocal(calendar);
-                utcTime = getTimeUTC(calendar, utcTimeZone);
+                // When permission are denied, Display toast
+                Log.d(TAG, "Fail: settingsCheck, Permission denied");
+                Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show();
             }
-
-            String jid = gridAlgorithm.getGridLocation(location);
-            String lat = "lat: " + location.getLatitude();
-            String lon = "lon: " + location.getLongitude();
-            String alt = "alt: " + coordinateConverter.twoDigitsDoubleToString(location.getAltitude()) + " m";
-
-            locationHistory.addItemToList((new LocationHistory.PlaceholderItem(jid, localTime, utcTime, lat, lon, alt)));
-            Log.d(TAG, "PlaceholderItem sent to RecyclerView/History");
-        } else {
-            Log.d(TAG, "PlaceholderItem is not sent to RecyclerView/History, Location = null");
         }
     }
 
-    /*
-        The IDE suggest to use Calendar.get(Calendar.MINUTE) ect. but I am not interested
-        in the current/updated time, i want to use the same instance in multiply methods
-        It would be preferable to use DateTimeFormatter, but it is first available from API level 26
-     */
-    private String dateBuilder(Calendar calendar){
-        Date date = calendar.getTime();
-        return date.getMinutes() + ":" + date.getMinutes() + ":" + date.getMinutes() + " " + DateFormat.getDateInstance().format(date);
+    private void startLocationUpdates() {
+        LocationRequest locationRequest = create();
+        locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
+        locationRequest.setInterval(5000); // Update interval in milliseconds (e.g., 5000ms = 5 seconds)
+
+        // Start location updates with the FusedLocationProviderClient
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return;
+        }
+        fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
     }
 
-    private String getTimeLocal(Calendar calendar) {
-        return "local:" + dateBuilder(calendar);
+    @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
+    private void updateTimes() {
+        // Get the current time in UTC
+        Date utcDate = new Date();
+        SimpleDateFormat utcFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
+        String utcTime = utcFormat.format(utcDate);
+
+        // Get the current time in local timezone
+        Date localDate = new Date();
+        SimpleDateFormat localFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        String localTime = localFormat.format(localDate);
+
+        // Update the TextViews with the times
+        utcTimeField.setText("UTC: " + utcTime);
+        localTimeField.setText("Local: " + localTime);
     }
 
-    private String getTimeUTC(Calendar calendar, TimeZone utcTimeZone) {
-        calendar.setTimeZone(utcTimeZone);
-        return "  utc:" + dateBuilder(calendar);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        handler.post(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Remove location updates when the activity is paused or stopped
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        handler.removeCallbacks(updateTimeRunnable);
     }
 
 }

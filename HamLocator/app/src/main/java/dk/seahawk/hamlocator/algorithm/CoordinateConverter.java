@@ -5,7 +5,7 @@ import android.annotation.SuppressLint;
 /**
  * Convert GPS coordinates from DD (Decimal degrees (google maps coordinates)) to DMS (Degrees Minutes Seconds (map coordinates))
  */
-public class CoordinateConverter {
+public class CoordinateConverter implements CoordinateConverterInterface {
 
     public CoordinateConverter() {}
 
@@ -40,13 +40,13 @@ public class CoordinateConverter {
 
     // double formatter
     @SuppressLint("DefaultLocale")
-    public String fiveDigitsDoubleToString(double value){
+    public String fiveDigitsDoubleToString(double value) {
         return String.format("%.5f", value);
     }
 
     // double formatter
     @SuppressLint("DefaultLocale")
-    public String twoDigitsDoubleToString(double value){
+    public String twoDigitsDoubleToString(double value) {
         return String.format("%.2f", value);
     }
 
