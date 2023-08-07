@@ -9,4 +9,4 @@ A backup function is under develupment, taking the users email address from the 
 
 
 ## Privacy
-No telemetry is collected in the application and it is intended to work fully, without work without advertisements and without network connection.
+No telemetry is collected in the application and the application is intended to work fully, without advertisements and without network connection.
