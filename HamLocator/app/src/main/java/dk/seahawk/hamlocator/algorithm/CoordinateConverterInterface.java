@@ -20,16 +20,9 @@ public interface CoordinateConverterInterface {
 
     /**
      * double formatter
-     * @param value as five digits string
+     * @param digits number of digits
+     * @param value value to convert
      * @return
      */
-    String fiveDigitsDoubleToString(double value);
-
-    /**
-     * double formatter
-     * @param value as two digits string
-     * @return
-     */
-    String twoDigitsDoubleToString(double value);
-
+    String digitsDoubleToString(int digits, double value);
 }

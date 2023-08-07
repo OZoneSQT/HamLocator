@@ -38,6 +38,7 @@ import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
 public class MainActivity extends AppCompatActivity {
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
+    private LocationRequest locationRequest;
     private GridAlgorithmInterface gridAlgorithmInterface;
     private CoordinateConverterInterface coordinateConverterInterface;
 
@@ -54,7 +55,7 @@ public class MainActivity extends AppCompatActivity {
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-    private int INTERVAL = 100;   // location refresh rate
+    private int INTERVAL = 10000;   // location refresh rate
 
     private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField, linkField;
     private String TAG = "MainLocatorActivity", lastLocation = "na";
@@ -108,16 +109,16 @@ public class MainActivity extends AppCompatActivity {
 
                 // Update location text views
                 jidField.setText(lastLocation);
-                lonField.setText(getString(R.string.lon) + lastLongitude);
-                latField.setText(getString(R.string.lat) + lastLatitude);
+                lonField.setText(getString(R.string.lon) + coordinateConverterInterface.digitsDoubleToString(7, lastLongitude));
+                latField.setText(getString(R.string.lat) + coordinateConverterInterface.digitsDoubleToString(7, lastLatitude));
                 nsLonField.setText(getString(R.string.lon) + coordinateConverterInterface.getLon(lastLongitude));
                 ewLatField.setText(getString(R.string.lat) + coordinateConverterInterface.getLat(lastLatitude));
 
                 // Update altitude text view
                 if(isMetric()) {
-                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " m");
+                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + " m");
                 } else {
-                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " ft");
+                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + " ft");
                 }
             }
         };
@@ -142,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
         linkField.setMovementMethod(LinkMovementMethod.getInstance());
 
-        if (INTERVAL == 100) INTERVAL = 5000; // lower the refresh rate to save energy, start quick to get the first result faster
+        locationRequest.setInterval(INTERVAL);
     }
 
     boolean isMetric() {
@@ -150,9 +151,9 @@ public class MainActivity extends AppCompatActivity {
 
         switch (locale.getCountry().toUpperCase()) {
             case "US": // Imperial (US)
-            case "GB": // Imperial
-            case "MM": // Imperial
-            case "LR": // Imperial
+            case "GB": // Imperial (United Kingdom)
+            case "MM": // Imperial (Myanmar)
+            case "LR": // Imperial (Liberia)
                 return false;
             default:
                 return true;
@@ -175,9 +176,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startLocationUpdates() {
-        LocationRequest locationRequest = create();
+        locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(INTERVAL);
+        locationRequest.setInterval(1000);
 
         // Start location updates with the FusedLocationProviderClient
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -220,6 +221,5 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         handler.removeCallbacks(updateTimeRunnable);
     }
-
 
 }
