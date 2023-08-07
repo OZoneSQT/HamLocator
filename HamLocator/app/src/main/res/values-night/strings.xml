@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="alt">"altitude: "</string>
+    <string name="lon">"longitude: "</string>
+    <string name="lat">"latitude: "</string>
+    <string name="hamlocator_by_oz1sqt">Hamlocator by OZ1SQT</string>
+    <string name="dd">DD</string>
+    <string name="seahawk_dk">Seahawk.dk</string>
+    <string name="dms">DMS</string>
+    <string name="lat_dms_na">lat dms: na</string>
+    <string name="lon_dms_na">lon dms: na</string>
+    <string name="utc_time_na">utc time: na</string>
+    <string name="local_time_na">local time: na</string>
+    <string name="alt_na">alt: na</string>
+    <string name="lat_na">lat: na</string>
+    <string name="lon_na">lon: na</string>
+    <string name="jid_na">jid: na</string>
+</resources>

@@ -27,6 +27,7 @@ import com.google.android.gms.location.Priority;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Locale;
 import java.util.TimeZone;
 
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
@@ -53,16 +54,11 @@ public class MainActivity extends AppCompatActivity {
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-    private int interval = 10000;
-    private int fastInterval = 5000;
-
+    private int INTERVAL = 100;   // location refresh rate
 
     private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField, linkField;
-    private String TAG = "MainLocatorActivity";
-    private String lastLocation = "na";
-    private double lastLongitude = 0;
-    private double lastLatitude = 0;
-    private double lastAltitude = 0;
+    private String TAG = "MainLocatorActivity", lastLocation = "na";
+    private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0;
 
     private Handler handler;
     private Runnable updateTimeRunnable;
@@ -100,22 +96,28 @@ public class MainActivity extends AppCompatActivity {
         locationCallback = new LocationCallback() {
             @SuppressLint("SetTextI18n")
             @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult != null) {
-                    Location location = locationResult.getLastLocation();
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
 
-                    // Update location parameters
-                    lastLocation = gridAlgorithmInterface.getGridLocation(location);
-                    lastLatitude = location.getLatitude();
-                    lastLongitude = location.getLongitude();
-                    lastAltitude = location.getAltitude();
+                // Update location parameters
+                lastLocation = gridAlgorithmInterface.getGridLocation(location);
+                assert location != null;
+                lastLatitude = location.getLatitude();
+                lastLongitude = location.getLongitude();
+                lastAltitude = location.getAltitude();
 
-                    jidField.setText(lastLocation);
-                    lonField.setText("lon: " + lastLongitude);
-                    latField.setText("lat: " + lastLatitude);
-                    altField.setText("alt: " + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " m");
-                    nsLonField.setText("lon dms: " + coordinateConverterInterface.getLon(lastLongitude));
-                    ewLatField.setText("lat dms: " + coordinateConverterInterface.getLat(lastLatitude));
+                // Update location text views
+                jidField.setText(lastLocation);
+                lonField.setText(getString(R.string.lon) + lastLongitude);
+                latField.setText(getString(R.string.lat) + lastLatitude);
+                nsLonField.setText(getString(R.string.lon) + coordinateConverterInterface.getLon(lastLongitude));
+                ewLatField.setText(getString(R.string.lat) + coordinateConverterInterface.getLat(lastLatitude));
+
+                // Update altitude text view
+                if(isMetric()) {
+                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " m");
+                } else {
+                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.twoDigitsDoubleToString(lastAltitude) + " ft");
                 }
             }
         };
@@ -140,6 +142,21 @@ public class MainActivity extends AppCompatActivity {
         linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
         linkField.setMovementMethod(LinkMovementMethod.getInstance());
 
+        if (INTERVAL == 100) INTERVAL = 5000; // lower the refresh rate to save energy, start quick to get the first result faster
+    }
+
+    boolean isMetric() {
+        Locale locale = this.getResources().getConfiguration().locale;
+
+        switch (locale.getCountry().toUpperCase()) {
+            case "US": // Imperial (US)
+            case "GB": // Imperial
+            case "MM": // Imperial
+            case "LR": // Imperial
+                return false;
+            default:
+                return true;
+        }
     }
 
     @Override
@@ -160,38 +177,34 @@ public class MainActivity extends AppCompatActivity {
     private void startLocationUpdates() {
         LocationRequest locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(5000); // Update interval in milliseconds (e.g., 5000ms = 5 seconds)
+        locationRequest.setInterval(INTERVAL);
 
         // Start location updates with the FusedLocationProviderClient
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
-        }
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+                != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this,
+                android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
+
         fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
     }
 
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
     private void updateTimes() {
+        String format = "dd-MM-yyyy HH:mm:ss";
+
+        // Get date and set format
+        Date date = new Date();
+        if (!isMetric()) format = "yyyy-MM-dd HH:mm:ss";
+
         // Get the current time in UTC
-        Date utcDate = new Date();
-        SimpleDateFormat utcFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
+        SimpleDateFormat utcFormat = new SimpleDateFormat(format);
         utcFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
-        String utcTime = utcFormat.format(utcDate);
 
         // Get the current time in local timezone
-        Date localDate = new Date();
-        SimpleDateFormat localFormat = new SimpleDateFormat("dd-MM-yyyy HH:mm:ss");
-        String localTime = localFormat.format(localDate);
+        SimpleDateFormat localFormat = new SimpleDateFormat(format);
 
         // Update the TextViews with the times
-        utcTimeField.setText("UTC: " + utcTime);
-        localTimeField.setText("Local: " + localTime);
+        utcTimeField.setText("UTC: " + utcFormat.format(date));
+        localTimeField.setText("Local: " + localFormat.format(date));
     }
 
     @Override
@@ -207,5 +220,6 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
         handler.removeCallbacks(updateTimeRunnable);
     }
+
 
 }

@@ -10,12 +10,13 @@
         android:id="@+id/txt_jid"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="48dp"
-        android:text="jid: na"
+        android:layout_marginTop="32dp"
+        android:text="@string/jid_na"
+        android:textColor="#FF0000"
         android:textSize="62sp"
         android:textStyle="bold"
-        android:textColor="#FF0000"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.497"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
@@ -23,10 +24,11 @@
         android:id="@+id/txt_longitude"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:text="lon: na"
+        android:layout_marginTop="48dp"
+        android:text="@string/lon_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.508"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_jid" />
 
@@ -34,23 +36,24 @@
         android:id="@+id/txt_latitude"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="lat: na"
+        android:layout_marginTop="8dp"
+        android:text="@string/lat_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.501"
+        app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_longitude" />
+
 
     <TextView
         android:id="@+id/txt_altitude"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="alt: na"
+        android:layout_marginTop="24dp"
+        android:text="@string/alt_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.501"
+        app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_latitude" />
 
@@ -58,8 +61,8 @@
         android:id="@+id/txt_localTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:text="local time: na"
+        android:layout_marginTop="24dp"
+        android:text="@string/local_time_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -69,8 +72,8 @@
         android:id="@+id/txt_utcTime"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="20dp"
-        android:text="utc time: na"
+        android:layout_marginTop="8dp"
+        android:text="@string/utc_time_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -80,11 +83,11 @@
         android:id="@+id/txt_lon_dms_ns"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="50dp"
-        android:text="lon dms: na"
+        android:layout_marginTop="72dp"
+        android:text="@string/lon_dms_na"
         android:textSize="26sp"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintHorizontal_bias="0.501"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_utcTime" />
 
@@ -92,21 +95,20 @@
         android:id="@+id/txt_lat_dms_ew"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="lat dms: na"
+        android:text="@string/lat_dms_na"
         android:textSize="26sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_lon_dms_ns"
-        app:layout_constraintVertical_bias="0.096" />
-
+        app:layout_constraintVertical_bias="0.047" />
 
     <TextView
         android:id="@+id/txt_header"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="656dp"
-        android:text="Hamlocator by OZ1SQT"
+        android:layout_marginTop="604dp"
+        android:text="@string/hamlocator_by_oz1sqt"
         android:textColor="#FF0000"
         android:textSize="26sp"
         android:textStyle="bold"
@@ -118,7 +120,7 @@
         android:id="@+id/txt_link"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Seahawk.dk"
+        android:text="@string/seahawk_dk"
         android:textColor="#0000FF"
         android:textSize="20sp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -126,6 +128,33 @@
         app:layout_constraintHorizontal_bias="0.498"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/txt_header"
-        app:layout_constraintVertical_bias="0.0" />
+        app:layout_constraintVertical_bias="0.2" />
+
+    <TextView
+        android:id="@+id/textView2"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="160dp"
+        android:text="@string/dd"
+        android:textColor="#0000FF"
+        android:textSize="16sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.041"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/textView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/dms"
+        android:textColor="#0000FF"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.042"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView2"
+        app:layout_constraintVertical_bias="0.472" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
