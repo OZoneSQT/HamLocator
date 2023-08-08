@@ -65,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-    private int INTERVAL = 10000;   // location refresh rate
+    private int INTERVAL = 1000;   // location refresh rate
 
     // Location handling
     private GridAlgorithmInterface gridAlgorithmInterface;
@@ -79,7 +79,8 @@ public class MainActivity extends AppCompatActivity {
     private Runnable updateTimeRunnable;
 
     // Sign in
-    private String userEmail = "";
+    // private String userEmail = "";
+    private String userEmail = "skruen@gmail.com";  //TODO Test address
     private static final int RC_SIGN_IN = 9001;
 
     @SuppressLint("MissingInflatedId")
@@ -204,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
     private void startLocationUpdates() {
         locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(1000);
+        locationRequest.setInterval(INTERVAL);
 
         // Start location updates with the FusedLocationProviderClient
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -212,6 +213,10 @@ public class MainActivity extends AppCompatActivity {
                 android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) return;
 
         fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
+    }
+
+    private void stopLocationUpdates() {
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
 
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
@@ -239,20 +244,28 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onStart() {
         super.onStart();
+        startLocationUpdates();
         handler.post(updateTimeRunnable);
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        startLocationUpdates();
         handler.post(updateTimeRunnable);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        // Remove location updates when the activity is paused or stopped
-        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        stopLocationUpdates();
+        handler.removeCallbacks(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopLocationUpdates();
         handler.removeCallbacks(updateTimeRunnable);
     }
 
@@ -285,9 +298,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void signInCheck() {
         Log.d(TAG, "Sign in check");
-        GoogleSignInAccount googleSignInAccount = GoogleSignIn.getLastSignedInAccount(this);
-        if (googleSignInAccount == null) signIn();
-        if (userEmail == null) signIn();
+        /*
+            GoogleSignInAccount googleSignInAccount = GoogleSignIn.getLastSignedInAccount(this);
+            if (googleSignInAccount == null) signIn();
+            if (userEmail == null) signIn();
+         */
     }
 
     @Override
@@ -313,45 +328,41 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    //TODO Intent stops the application, debug:
+    @SuppressLint("IntentReset")
     private void sendEmail() {
-        signInCheck();
 
-        Log.d(TAG, "Preparing mail");
-        if (jidField != null || userEmail == "" ) {
+        try {
+            signInCheck();
+
             // Add content to message
+            Log.d(TAG, "Preparing mail");
             String[] TO = {userEmail};
-            String[] CC = {};
-            String subject = "HamLocator: " + jidField + ", utc:" + utcTimeField;
-            String body = "Saved location from Android app \"HamLocator\" -> " + "\n" +
-                    "JID-grid: " + jidField + "\n" +
-                    "DD: " + lonField + " " + latField + "\n" +
-                    "DMS: " + nsLonField + " " + ewLatField + "\n" +
-                    "Altitude " + altField + "\n" +
-                    "Local time: " + localTimeField + "\n" +
-                    "UTC time: " + utcTimeField;
+            String subject = "HamLocator: " + jidField.getText() + ", utc:" + utcTimeField.getText();
+            String body = "Saved location from Android app \"HamLocator\" -> " +
+                    "\n    JID-grid:   " + jidField.getText() +
+                    "\n    DD:         " + lonField.getText() + " " + latField.getText() +
+                    "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
+                    "\n    Altitude    " + altField.getText() +
+                    "\n    Local time: " + localTimeField.getText() +
+                    "\n    UTC time:   " + utcTimeField.getText();
 
-            Log.d(TAG, "Building mail");
             // Build message
+            Log.d(TAG, "Building mail");
             Intent emailIntent = new Intent(Intent.ACTION_SEND);
             emailIntent.setData(Uri.parse("mailto:"));
+            emailIntent.setType("text/plain");
             emailIntent.putExtra(Intent.EXTRA_EMAIL, TO);
-            emailIntent.putExtra(Intent.EXTRA_CC, CC);
             emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
             emailIntent.putExtra(Intent.EXTRA_TEXT, body);
 
+            // Send email / message
+            Log.d(TAG, "Sending mail");
             startActivity(emailIntent);
 
-            Log.d(TAG, "Sending mail");
-            // Send email / message
-            if (emailIntent.resolveActivity(getPackageManager()) != null) {
-               startActivity(emailIntent);
-            }
-
-            Toast.makeText(getApplicationContext(),"Location send to " + userEmail ,Toast.LENGTH_SHORT).show();
-        } else {
+        } catch (Exception e) {
             Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send",Toast.LENGTH_LONG).show();
-       }
+            Log.d(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
+        }
 
     }
 
