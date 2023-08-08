@@ -44,6 +44,15 @@ import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
 
+/*
+ *  Log.x(Tag, msg) / Log.x(Tag, msg, tw)
+ *  a = Assert
+ *  d = Debug
+ *  e = Error
+ *  i = Info
+ *  v = Verbose
+ *  w = Warn
+ */
 public class MainActivity extends AppCompatActivity {
 
     // Location request
@@ -51,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
     private LocationCallback locationCallback;
     private LocationRequest locationRequest;
 
-    /**
+    /*
      * LocationRequest
      *
      * https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest
@@ -69,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
     // Location handling
     private GridAlgorithmInterface gridAlgorithmInterface;
     private CoordinateConverterInterface coordinateConverterInterface;
-    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField, linkField;
+    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField;
     private String TAG = "MainLocatorActivity", lastLocation = "na";
     private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0;
 
@@ -78,10 +87,12 @@ public class MainActivity extends AppCompatActivity {
     private Runnable updateTimeRunnable;
 
     // Sign in
-    // private String userEmail = "";
-    private String userEmail = "skruen@gmail.com";  //TODO Test address
-    private static final int RC_SIGN_IN = 9001;
+    private static final int RC_SIGN_IN = 1000;
 
+
+    /**
+     *  Life cycles
+     */
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         utcTimeField = findViewById(R.id.txt_utcTime);
 
         // Initialize view, Link
-        linkField = findViewById(R.id.txt_link);
+        TextView linkField = findViewById(R.id.txt_link);
 
         // Initialize Maidenhead algorithm
         gridAlgorithmInterface = new GridAlgorithm();
@@ -170,22 +181,38 @@ public class MainActivity extends AppCompatActivity {
         locationRequest.setInterval(INTERVAL);
     }
 
-    boolean isMetric() {
-        Locale locale = this.getResources().getConfiguration().locale;
-
-        switch (locale.getCountry().toUpperCase()) {
-            case "US": // Imperial (US)
-            case "GB": // Imperial (United Kingdom)
-            case "MM": // Imperial (Myanmar)
-            case "LR": // Imperial (Liberia)
-                Log.d(TAG, "Imperial Measurement unit");
-                return false;
-            default:
-                Log.d(TAG, "Metric Measurement unit");
-                return true;
-        }
+    @Override
+    protected void onStart() {
+        super.onStart();
+        startLocationUpdates();
+        handler.post(updateTimeRunnable);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startLocationUpdates();
+        handler.post(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopLocationUpdates();
+        handler.removeCallbacks(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopLocationUpdates();
+        handler.removeCallbacks(updateTimeRunnable);
+    }
+
+
+    /**
+     *  Location
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -218,6 +245,10 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
 
+
+    /**
+     * Utility's
+     */
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
     private void updateTimes() {
         String format = "dd-MM-yyyy HH:mm:ss";
@@ -240,68 +271,37 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Time updated");
     }
 
-    @Override
-    protected void onStart() {
-        super.onStart();
-        startLocationUpdates();
-        handler.post(updateTimeRunnable);
+    boolean isMetric() {
+        Locale locale = this.getResources().getConfiguration().locale;
+
+        switch (locale.getCountry().toUpperCase()) {
+            case "US": // Imperial (US)
+            case "GB": // Imperial (United Kingdom)
+            case "MM": // Imperial (Myanmar)
+            case "LR": // Imperial (Liberia)
+                Log.d(TAG, "Imperial Measurement unit");
+                return false;
+            default:
+                Log.d(TAG, "Metric Measurement unit");
+                return true;
+        }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        startLocationUpdates();
-        handler.post(updateTimeRunnable);
-    }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        stopLocationUpdates();
-        handler.removeCallbacks(updateTimeRunnable);
-    }
-
-    @Override
-    protected void onStop() {
-        super.onStop();
-        stopLocationUpdates();
-        handler.removeCallbacks(updateTimeRunnable);
-    }
-
+    /**
+     * Sign In
+     */
     // https://developer.android.com/training/sign-in
     // https://developers.google.com/identity/sign-in/android/start-integrating
-    // https://github.com/sunjithc/GoogleSignInAccount-getIdToken (example)
+    // https://github.com/easy-tuto/MyLoginApp/tree/login_with_google (example)
     private void signIn() {
         Log.d(TAG, "Sign in");
 
-        // Configure sign-in to request the user's ID, email address, and basic
-        // profile. ID and basic profile are included in DEFAULT_SIGN_IN.
-        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .build();
+        GoogleSignInOptions googleSignInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        GoogleSignInClient googleSignInClient = GoogleSignIn.getClient(this, googleSignInOptions);
 
-        // Build a GoogleSignInClient with the options specified by gso.
-        GoogleSignInClient mGoogleSignInClient = GoogleSignIn.getClient(this, gso);
-        Intent signInIntent = mGoogleSignInClient.getSignInIntent();
+        Intent signInIntent = googleSignInClient.getSignInIntent();
         startActivityForResult(signInIntent, RC_SIGN_IN);
-
-        Log.d(TAG, "Sign in check at log in");
-
-        // Check for existing Google Sign In account, if the user is already signed in
-        // the GoogleSignInAccount will be non-null.
-        GoogleSignInAccount account = GoogleSignIn.getLastSignedInAccount(this);
-        userEmail = account.getEmail();
-
-        Log.d(TAG, "USER MAIL: " + userEmail);
-    }
-
-    private void signInCheck() {
-        Log.d(TAG, "Sign in check");
-        /*
-            GoogleSignInAccount googleSignInAccount = GoogleSignIn.getLastSignedInAccount(this);
-            if (googleSignInAccount == null) signIn();
-            if (userEmail == null) signIn();
-         */
     }
 
     @Override
@@ -309,41 +309,43 @@ public class MainActivity extends AppCompatActivity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode == RC_SIGN_IN) {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
-            handleSignInResult(task);
-        }
 
-    }
-
-    private void handleSignInResult(Task<GoogleSignInAccount> completedTask) {
-        try {
-            GoogleSignInAccount account = completedTask.getResult(ApiException.class);
-            // Signed in successfully, show authenticated UI.
-            Log.d("getIdToken", account.getIdToken());
-
-        } catch (ApiException e) {
-            // The ApiException status code indicates the detailed failure reason.
-            // Please refer to the GoogleSignInStatusCodes class reference for more information.
-            Log.w(TAG, "signInResult:failed code=" + e.getStatusCode());
+            try {
+                task.getResult(ApiException.class);
+            } catch (ApiException e) {
+                Log.w(TAG, "signInResult:failed code=" + e.getStatusCode());
+            }
         }
     }
 
+
+    /**
+     * Backup / Email intent
+     */
     @SuppressLint("IntentReset")
     private void sendEmail() {
 
         try {
-            signInCheck();
+            String userEmail = "";
+
+            GoogleSignInAccount googleSignInAccount = GoogleSignIn.getLastSignedInAccount(this);
+            if (googleSignInAccount != null) {
+                userEmail = googleSignInAccount.getEmail();
+            } else {
+                signIn();
+            }
 
             // Add content to message
             Log.d(TAG, "Preparing mail");
-            String[] TO = {userEmail};
+            String[] TO = { userEmail };
             String subject = "HamLocator: " + jidField.getText() + ", utc:" + utcTimeField.getText();
-            String body = "Saved location from Android app \"HamLocator\" -> " +
-                    "\n    JID-grid:   " + jidField.getText() +
-                    "\n    DD:         " + lonField.getText() + " " + latField.getText() +
-                    "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
-                    "\n    Altitude    " + altField.getText() +
-                    "\n    Local time: " + localTimeField.getText() +
-                    "\n    UTC time:   " + utcTimeField.getText();
+            String body =   "Saved location from Android app \"HamLocator\" -> " +
+                            "\n    JID-grid:   " + jidField.getText() +
+                            "\n    DD:         " + lonField.getText() + " " + latField.getText() +
+                            "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
+                            "\n    Altitude    " + altField.getText() +
+                            "\n    Local time: " + localTimeField.getText() +
+                            "\n    UTC time:   " + utcTimeField.getText();
 
             // Build message
             Log.d(TAG, "Building mail");
@@ -359,10 +361,9 @@ public class MainActivity extends AppCompatActivity {
             startActivity(emailIntent);
 
         } catch (Exception e) {
-            Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send",Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send", Toast.LENGTH_LONG).show();
             Log.d(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
         }
-
     }
 
 }
