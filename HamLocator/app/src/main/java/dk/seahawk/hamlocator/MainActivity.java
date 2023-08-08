@@ -231,6 +231,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Update the TextViews with the times
         utcTimeField.setText("UTC: " + utcFormat.format(date));
+        localTimeField.setText("Local: " + localFormat.format(date));
 
         Log.d(TAG, "Time updated");
     }
@@ -312,11 +313,12 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    //TODO Intent stops the application, debug:
     private void sendEmail() {
         signInCheck();
 
         Log.d(TAG, "Preparing mail");
-        if (jidField != null || userEmail == "") {
+        if (jidField != null || userEmail == "" ) {
             // Add content to message
             String[] TO = {userEmail};
             String[] CC = {};
@@ -331,23 +333,25 @@ public class MainActivity extends AppCompatActivity {
 
             Log.d(TAG, "Building mail");
             // Build message
-            Intent emailIntent = new Intent(Intent.ACTION_SENDTO);
+            Intent emailIntent = new Intent(Intent.ACTION_SEND);
             emailIntent.setData(Uri.parse("mailto:"));
             emailIntent.putExtra(Intent.EXTRA_EMAIL, TO);
             emailIntent.putExtra(Intent.EXTRA_CC, CC);
             emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
             emailIntent.putExtra(Intent.EXTRA_TEXT, body);
 
+            startActivity(emailIntent);
+
             Log.d(TAG, "Sending mail");
             // Send email / message
             if (emailIntent.resolveActivity(getPackageManager()) != null) {
-                startActivity(emailIntent);
+               startActivity(emailIntent);
             }
 
             Toast.makeText(getApplicationContext(),"Location send to " + userEmail ,Toast.LENGTH_SHORT).show();
         } else {
             Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send",Toast.LENGTH_LONG).show();
-        }
+       }
 
     }
 
