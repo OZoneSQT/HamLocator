@@ -3,8 +3,10 @@ package dk.seahawk.hamlocator;
 import static com.google.android.gms.location.LocationRequest.*;
 
 import android.annotation.SuppressLint;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.text.Html;
@@ -18,12 +20,19 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.Task;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -35,14 +44,23 @@ import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
 
+/*
+ *  Log.x(Tag, msg) / Log.x(Tag, msg, tw)
+ *  a = Assert
+ *  d = Debug
+ *  e = Error
+ *  i = Info
+ *  v = Verbose
+ *  w = Warn
+ */
 public class MainActivity extends AppCompatActivity {
+
+    // Location request
     private FusedLocationProviderClient fusedLocationProviderClient;
     private LocationCallback locationCallback;
     private LocationRequest locationRequest;
-    private GridAlgorithmInterface gridAlgorithmInterface;
-    private CoordinateConverterInterface coordinateConverterInterface;
 
-    /**
+    /*
      * LocationRequest
      *
      * https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest
@@ -55,16 +73,26 @@ public class MainActivity extends AppCompatActivity {
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-    private int INTERVAL = 10000;   // location refresh rate
+    private int INTERVAL = 1000;   // location refresh rate
 
-    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField, linkField;
+    // Location handling
+    private GridAlgorithmInterface gridAlgorithmInterface;
+    private CoordinateConverterInterface coordinateConverterInterface;
+    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField;
     private String TAG = "MainLocatorActivity", lastLocation = "na";
     private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0;
 
+    // Time
     private Handler handler;
     private Runnable updateTimeRunnable;
 
+    // Sign in
+    private static final int RC_SIGN_IN = 1000;
 
+
+    /**
+     *  Life cycles
+     */
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -84,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
         utcTimeField = findViewById(R.id.txt_utcTime);
 
         // Initialize view, Link
-        linkField = findViewById(R.id.txt_link);
+        TextView linkField = findViewById(R.id.txt_link);
 
         // Initialize Maidenhead algorithm
         gridAlgorithmInterface = new GridAlgorithm();
@@ -120,6 +148,7 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + " ft");
                 }
+                Log.d(TAG, "Location updated: " + jidField);
             }
         };
 
@@ -143,23 +172,47 @@ public class MainActivity extends AppCompatActivity {
         linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
         linkField.setMovementMethod(LinkMovementMethod.getInstance());
 
+        FloatingActionButton fabSendEmail = findViewById(R.id.fabSendEmail);
+        fabSendEmail.setOnClickListener(view -> {
+            Log.d(TAG, "Floating action button pressed");
+            sendEmail();
+        });
+
         locationRequest.setInterval(INTERVAL);
     }
 
-    boolean isMetric() {
-        Locale locale = this.getResources().getConfiguration().locale;
-
-        switch (locale.getCountry().toUpperCase()) {
-            case "US": // Imperial (US)
-            case "GB": // Imperial (United Kingdom)
-            case "MM": // Imperial (Myanmar)
-            case "LR": // Imperial (Liberia)
-                return false;
-            default:
-                return true;
-        }
+    @Override
+    protected void onStart() {
+        super.onStart();
+        startLocationUpdates();
+        handler.post(updateTimeRunnable);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        startLocationUpdates();
+        handler.post(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        stopLocationUpdates();
+        handler.removeCallbacks(updateTimeRunnable);
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopLocationUpdates();
+        handler.removeCallbacks(updateTimeRunnable);
+    }
+
+
+    /**
+     *  Location
+     */
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -178,7 +231,7 @@ public class MainActivity extends AppCompatActivity {
     private void startLocationUpdates() {
         locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(1000);
+        locationRequest.setInterval(INTERVAL);
 
         // Start location updates with the FusedLocationProviderClient
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
@@ -188,6 +241,14 @@ public class MainActivity extends AppCompatActivity {
         fusedLocationProviderClient.requestLocationUpdates(locationRequest, locationCallback, null);
     }
 
+    private void stopLocationUpdates() {
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+    }
+
+
+    /**
+     * Utility's
+     */
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
     private void updateTimes() {
         String format = "dd-MM-yyyy HH:mm:ss";
@@ -206,20 +267,103 @@ public class MainActivity extends AppCompatActivity {
         // Update the TextViews with the times
         utcTimeField.setText("UTC: " + utcFormat.format(date));
         localTimeField.setText("Local: " + localFormat.format(date));
+
+        Log.d(TAG, "Time updated");
+    }
+
+    boolean isMetric() {
+        Locale locale = this.getResources().getConfiguration().locale;
+
+        switch (locale.getCountry().toUpperCase()) {
+            case "US": // Imperial (US)
+            case "GB": // Imperial (United Kingdom)
+            case "MM": // Imperial (Myanmar)
+            case "LR": // Imperial (Liberia)
+                Log.d(TAG, "Imperial Measurement unit");
+                return false;
+            default:
+                Log.d(TAG, "Metric Measurement unit");
+                return true;
+        }
+    }
+
+
+    /**
+     * Sign In
+     */
+    // https://developer.android.com/training/sign-in
+    // https://developers.google.com/identity/sign-in/android/start-integrating
+    // https://github.com/easy-tuto/MyLoginApp/tree/login_with_google (example)
+    private void signIn() {
+        Log.d(TAG, "Sign in");
+
+        GoogleSignInOptions googleSignInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
+        GoogleSignInClient googleSignInClient = GoogleSignIn.getClient(this, googleSignInOptions);
+
+        Intent signInIntent = googleSignInClient.getSignInIntent();
+        startActivityForResult(signInIntent, RC_SIGN_IN);
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        handler.post(updateTimeRunnable);
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == RC_SIGN_IN) {
+            Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
+
+            try {
+                task.getResult(ApiException.class);
+            } catch (ApiException e) {
+                Log.w(TAG, "signInResult:failed code=" + e.getStatusCode());
+            }
+        }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        // Remove location updates when the activity is paused or stopped
-        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-        handler.removeCallbacks(updateTimeRunnable);
+
+    /**
+     * Backup / Email intent
+     */
+    @SuppressLint("IntentReset")
+    private void sendEmail() {
+
+        try {
+            String userEmail = "";
+
+            GoogleSignInAccount googleSignInAccount = GoogleSignIn.getLastSignedInAccount(this);
+            if (googleSignInAccount != null) {
+                userEmail = googleSignInAccount.getEmail();
+            } else {
+                signIn();
+            }
+
+            // Add content to message
+            Log.d(TAG, "Preparing mail");
+            String[] TO = { userEmail };
+            String subject = "HamLocator: " + jidField.getText() + ", utc:" + utcTimeField.getText();
+            String body =   "Saved location from Android app \"HamLocator\" -> " +
+                            "\n    JID-grid:   " + jidField.getText() +
+                            "\n    DD:         " + lonField.getText() + " " + latField.getText() +
+                            "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
+                            "\n    Altitude    " + altField.getText() +
+                            "\n    Local time: " + localTimeField.getText() +
+                            "\n    UTC time:   " + utcTimeField.getText();
+
+            // Build message
+            Log.d(TAG, "Building mail");
+            Intent emailIntent = new Intent(Intent.ACTION_SEND);
+            emailIntent.setData(Uri.parse("mailto:"));
+            emailIntent.setType("text/plain");
+            emailIntent.putExtra(Intent.EXTRA_EMAIL, TO);
+            emailIntent.putExtra(Intent.EXTRA_SUBJECT, subject);
+            emailIntent.putExtra(Intent.EXTRA_TEXT, body);
+
+            // Send email / message
+            Log.d(TAG, "Sending mail");
+            startActivity(emailIntent);
+
+        } catch (Exception e) {
+            Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send", Toast.LENGTH_LONG).show();
+            Log.d(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
+        }
     }
 
 }
