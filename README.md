@@ -11,4 +11,5 @@ No user telemetry is collected in the application and the application is intende
 
 
 ## Future develupment
-A Widgit for the home screen is in development, means to show the JID grid location to the user as a gimmick.
+* Widgit for the home screen is in development, means to show the JID grid location to the user as a gimmick.
+* Translation for multiply languages.
