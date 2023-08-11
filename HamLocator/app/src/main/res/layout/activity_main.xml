@@ -188,6 +188,20 @@
         app:layout_constraintTop_toBottomOf="@+id/txt_header"
         app:layout_constraintVertical_bias="0.0" />
 
+    <TextView
+        android:id="@+id/txt_accuracy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/accuracy_na"
+        android:textColor="#0000FF"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.128"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.933" />
+
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabSendEmail"
         android:layout_width="wrap_content"

@@ -15,4 +15,5 @@
     <string name="lat_na">lat: na</string>
     <string name="lon_na">lon: na</string>
     <string name="jid_na">jid: na</string>
+    <string name="accuracy_na">Accuracy: na</string>
 </resources>

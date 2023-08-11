@@ -36,13 +36,13 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
-import java.util.Locale;
 import java.util.TimeZone;
 
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
 import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
+import dk.seahawk.hamlocator.util.Unit;
 
 /*
  *  Log.x(Tag, msg) / Log.x(Tag, msg, tw)
@@ -78,9 +78,11 @@ public class MainActivity extends AppCompatActivity {
     // Location handling
     private GridAlgorithmInterface gridAlgorithmInterface;
     private CoordinateConverterInterface coordinateConverterInterface;
-    private TextView jidField, lonField, latField, altField, nsLonField, ewLatField, localTimeField, utcTimeField;
-    private String TAG = "MainLocatorActivity", lastLocation = "na";
-    private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0;
+    private TextView jidField, lonField, latField, altField, accField, nsLonField, ewLatField, localTimeField, utcTimeField;
+    private final String TAG = "MainLocatorActivity";
+    private String lastLocation = "na";
+    private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0, lastAccuracy = 0;
+    private Unit unit;
 
     // Time
     private Handler handler;
@@ -99,86 +101,10 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize view, Location
-        jidField = findViewById(R.id.txt_jid);
-        lonField = findViewById(R.id.txt_longitude);
-        latField = findViewById(R.id.txt_latitude);
-        altField = findViewById(R.id.txt_altitude);
-        nsLonField = findViewById(R.id.txt_lon_dms_ns);
-        ewLatField = findViewById(R.id.txt_lat_dms_ew);
-
-        // Initialize view, Location
-        localTimeField = findViewById(R.id.txt_localTime);
-        utcTimeField = findViewById(R.id.txt_utcTime);
-
-        // Initialize view, Link
-        TextView linkField = findViewById(R.id.txt_link);
-
-        // Initialize Maidenhead algorithm
-        gridAlgorithmInterface = new GridAlgorithm();
-        coordinateConverterInterface = new CoordinateConverter();
-
-        // Initialize the FusedLocationProviderClient
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
-
-        // Initialize the LocationCallback
-        locationCallback = new LocationCallback() {
-            @SuppressLint("SetTextI18n")
-            @Override
-            public void onLocationResult(@NonNull LocationResult locationResult) {
-                Location location = locationResult.getLastLocation();
-
-                // Update location parameters
-                lastLocation = gridAlgorithmInterface.getGridLocation(location);
-                assert location != null;
-                lastLatitude = location.getLatitude();
-                lastLongitude = location.getLongitude();
-                lastAltitude = location.getAltitude();
-
-                // Update location text views
-                jidField.setText(lastLocation);
-                lonField.setText(getString(R.string.lon) + coordinateConverterInterface.digitsDoubleToString(7, lastLongitude));
-                latField.setText(getString(R.string.lat) + coordinateConverterInterface.digitsDoubleToString(7, lastLatitude));
-                nsLonField.setText(getString(R.string.lon) + coordinateConverterInterface.getLon(lastLongitude));
-                ewLatField.setText(getString(R.string.lat) + coordinateConverterInterface.getLat(lastLatitude));
-
-                // Update altitude text view
-                if(isMetric()) {
-                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + " m");
-                } else {
-                    altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + " ft");
-                }
-                Log.d(TAG, "Location updated: " + jidField);
-            }
-        };
-
-        // Check for location permission and request if not granted
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        } else {
-            // Request location updates
-            startLocationUpdates();
-        }
-
-        handler = new Handler();
-        updateTimeRunnable = new Runnable() {
-            @Override
-            public void run() {
-                updateTimes();
-                handler.postDelayed(this, 1000); // Update every 1 second
-            }
-        };
-
-        linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
-        linkField.setMovementMethod(LinkMovementMethod.getInstance());
-
-        FloatingActionButton fabSendEmail = findViewById(R.id.fabSendEmail);
-        fabSendEmail.setOnClickListener(view -> {
-            Log.d(TAG, "Floating action button pressed");
-            sendEmail();
-        });
-
-        locationRequest.setInterval(INTERVAL);
+        initStaticUI();
+        timeHandler();
+        initLocationUI();
+        locationHandler();
     }
 
     @Override
@@ -211,8 +137,98 @@ public class MainActivity extends AppCompatActivity {
 
 
     /**
+     * UI
+     */
+    private void initStaticUI() {
+        Log.d(TAG, "init static UI");
+
+        // Initialize view, Link
+        TextView linkField = findViewById(R.id.txt_link);
+
+        linkField.setText(Html.fromHtml("<a href='https://seahawk.dk'>Seahawk.dk</a>"));
+        linkField.setMovementMethod(LinkMovementMethod.getInstance());
+
+        FloatingActionButton fabSendEmail = findViewById(R.id.fabSendEmail);
+        fabSendEmail.setOnClickListener(view -> {
+            Log.d(TAG, "Floating action button pressed");
+            sendEmail();
+        });
+    }
+
+    private void initLocationUI() {
+        Log.d(TAG, "init location UI");
+
+        // Initialize view, Location
+        jidField = findViewById(R.id.txt_jid);
+        lonField = findViewById(R.id.txt_longitude);
+        latField = findViewById(R.id.txt_latitude);
+        altField = findViewById(R.id.txt_altitude);
+        accField = findViewById(R.id.txt_accuracy);
+        nsLonField = findViewById(R.id.txt_lon_dms_ns);
+        ewLatField = findViewById(R.id.txt_lat_dms_ew);
+    }
+
+
+    /**
      *  Location
      */
+    private void locationHandler() {
+        Log.d(TAG, "init location handler");
+
+        // Initialize Maidenhead algorithm
+        gridAlgorithmInterface = new GridAlgorithm();
+        coordinateConverterInterface = new CoordinateConverter();
+        unit = new Unit(TAG, this);
+
+        // Initialize the FusedLocationProviderClient
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+
+        // Initialize the LocationCallback
+        locationCallback = new LocationCallback() {
+            @SuppressLint("SetTextI18n")
+            @Override
+            public void onLocationResult(@NonNull LocationResult locationResult) {
+                Location location = locationResult.getLastLocation();
+
+                // Update location parameters
+                lastLocation = gridAlgorithmInterface.getGridLocation(location);
+                assert location != null;
+                lastLatitude = location.getLatitude();
+                lastLongitude = location.getLongitude();
+                lastAltitude = location.getAltitude();
+                lastAccuracy = location.getAccuracy();
+
+                // Update location text views
+                jidField.setText(lastLocation);
+                lonField.setText(getString(R.string.lon) + coordinateConverterInterface.digitsDoubleToString(7, lastLongitude));
+                latField.setText(getString(R.string.lat) + coordinateConverterInterface.digitsDoubleToString(7, lastLatitude));
+                nsLonField.setText(getString(R.string.lon) + coordinateConverterInterface.getLon(lastLongitude));
+                ewLatField.setText(getString(R.string.lat) + coordinateConverterInterface.getLat(lastLatitude));
+
+                // Update altitude text view
+                altField.setText(getString(R.string.alt) + coordinateConverterInterface.digitsDoubleToString(2, lastAltitude) + unit.getUnit());
+                accField.setText("Accuracy: " + coordinateConverterInterface.digitsDoubleToString(2, lastAccuracy) + unit.getUnit());
+
+                Log.d(TAG, "Location updated: " + jidField);
+            }
+        };
+
+        permissionCheck();
+        locationRequest.setInterval(INTERVAL);
+    }
+
+    private void permissionCheck() {
+        Log.d(TAG, "Permission check");
+
+        // Check for location permission and request if not granted
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            // Request location updates
+            startLocationUpdates();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -229,6 +245,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startLocationUpdates() {
+        Log.d(TAG, "Start location updates");
+
         locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
         locationRequest.setInterval(INTERVAL);
@@ -242,20 +260,40 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopLocationUpdates() {
+        Log.d(TAG, "Stop location updates");
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
 
 
     /**
-     * Utility's
+     * Time
      */
+    private void timeHandler() {
+        Log.d(TAG, "init time handler");
+
+        // Initialize view, Location
+        localTimeField = findViewById(R.id.txt_localTime);
+        utcTimeField = findViewById(R.id.txt_utcTime);
+
+        handler = new Handler();
+        updateTimeRunnable = new Runnable() {
+            @Override
+            public void run() {
+                updateTimes();
+                handler.postDelayed(this, 1000); // Update every 1 second
+            }
+        };
+    }
+
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
     private void updateTimes() {
+        Log.d(TAG, "Update time");
+
         String format = "dd-MM-yyyy HH:mm:ss";
 
         // Get date and set format
         Date date = new Date();
-        if (!isMetric()) format = "yyyy-MM-dd HH:mm:ss";
+        if (!unit.isMetric()) format = "yyyy-MM-dd HH:mm:ss";
 
         // Get the current time in UTC
         SimpleDateFormat utcFormat = new SimpleDateFormat(format);
@@ -271,28 +309,11 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Time updated");
     }
 
-    boolean isMetric() {
-        Locale locale = this.getResources().getConfiguration().locale;
-
-        switch (locale.getCountry().toUpperCase()) {
-            case "US": // Imperial (US)
-            case "GB": // Imperial (United Kingdom)
-            case "MM": // Imperial (Myanmar)
-            case "LR": // Imperial (Liberia)
-                Log.d(TAG, "Imperial Measurement unit");
-                return false;
-            default:
-                Log.d(TAG, "Metric Measurement unit");
-                return true;
-        }
-    }
-
 
     /**
      * Sign In
      */
     // https://developer.android.com/training/sign-in
-    // https://developers.google.com/identity/sign-in/android/start-integrating
     // https://github.com/easy-tuto/MyLoginApp/tree/login_with_google (example)
     private void signIn() {
         Log.d(TAG, "Sign in");
@@ -313,7 +334,7 @@ public class MainActivity extends AppCompatActivity {
             try {
                 task.getResult(ApiException.class);
             } catch (ApiException e) {
-                Log.w(TAG, "signInResult:failed code=" + e.getStatusCode());
+                Log.e(TAG, "signInResult:failed code=" + e.getStatusCode());
             }
         }
     }
@@ -324,7 +345,6 @@ public class MainActivity extends AppCompatActivity {
      */
     @SuppressLint("IntentReset")
     private void sendEmail() {
-
         try {
             String userEmail = "";
 
@@ -336,16 +356,17 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // Add content to message
-            Log.d(TAG, "Preparing mail");
+            Log.d(TAG,  "Preparing mail");
             String[] TO = { userEmail };
             String subject = "HamLocator: " + jidField.getText() + ", utc:" + utcTimeField.getText();
-            String body =   "Saved location from Android app \"HamLocator\" -> " +
-                            "\n    JID-grid:   " + jidField.getText() +
-                            "\n    DD:         " + lonField.getText() + " " + latField.getText() +
-                            "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
-                            "\n    Altitude    " + altField.getText() +
-                            "\n    Local time: " + localTimeField.getText() +
-                            "\n    UTC time:   " + utcTimeField.getText();
+            String body =    "Saved location from Android app \"HamLocator\":" +
+                       "\n    JID-grid:   " + jidField.getText() +
+                       "\n    DD:         " + lonField.getText() + " " + latField.getText() +
+                       "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
+                       "\n    Altitude    " + altField.getText() + unit.getUnit() +
+                       "\n    Accuracy    " + accField.getText() + unit.getUnit() +
+                       "\n    Local time: " + localTimeField.getText() +
+                       "\n    UTC time:   " + utcTimeField.getText();
 
             // Build message
             Log.d(TAG, "Building mail");
@@ -362,7 +383,7 @@ public class MainActivity extends AppCompatActivity {
 
         } catch (Exception e) {
             Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send", Toast.LENGTH_LONG).show();
-            Log.d(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
+            Log.e(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
         }
     }
 
