@@ -20,6 +20,8 @@ public class HamLocatorService extends IntentService {
     private Activity activity;
     private String TAG = "HamLocatorService";
 
+
+
     public HamLocatorService(Activity activity) {
         super("HamLocatorService");
         Log.d(TAG, "init HamLocatorService");
