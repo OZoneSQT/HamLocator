@@ -1,4 +1,4 @@
-package dk.seahawk.hamlocator;
+package dk.seahawk.hamlocator.app;
 
 import static com.google.android.gms.location.LocationRequest.*;
 
@@ -38,6 +38,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 
+import dk.seahawk.hamlocator.R;
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
 import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
