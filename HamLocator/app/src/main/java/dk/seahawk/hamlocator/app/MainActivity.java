@@ -1,4 +1,4 @@
-package dk.seahawk.hamlocator;
+package dk.seahawk.hamlocator.app;
 
 import static com.google.android.gms.location.LocationRequest.*;
 
@@ -38,10 +38,12 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.TimeZone;
 
+import dk.seahawk.hamlocator.R;
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
 import dk.seahawk.hamlocator.algorithm.CoordinateConverterInterface;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
+import dk.seahawk.hamlocator.util.ActivityHolder;
 import dk.seahawk.hamlocator.util.Unit;
 
 /*
@@ -84,6 +86,9 @@ public class MainActivity extends AppCompatActivity {
     private double lastLongitude = 0, lastLatitude = 0, lastAltitude = 0, lastAccuracy = 0;
     private Unit unit;
 
+    // Util
+    private ActivityHolder activityHolder;
+
     // Time
     private Handler handler;
     private Runnable updateTimeRunnable;
@@ -100,6 +105,10 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // Set activity in activity holder
+        activityHolder = ActivityHolder.getInstance();
+        activityHolder.setActivity(this);
 
         initStaticUI();
         timeHandler();
