@@ -1,3 +1,4 @@
+
 package dk.seahawk.hamlocator.service;
 
 import android.app.Activity;
@@ -17,15 +18,17 @@ import com.google.android.gms.location.LocationServices;
 public class HamLocatorService extends IntentService {
 
     private ResultReceiver mReceiver;
-    private Activity activity;
+  //  private Activity activity;
     private String TAG = "HamLocatorService";
 
+    public static final String RECEIVER_KEY = "receiver";
 
 
-    public HamLocatorService(Activity activity) {
+
+    public HamLocatorService() {
         super("HamLocatorService");
         Log.d(TAG, "init HamLocatorService");
-        this.activity = activity;
+   //     this.activity = new Activity();
     }
 
     @Override
@@ -39,8 +42,8 @@ public class HamLocatorService extends IntentService {
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             // Request permissions
             Log.d(TAG, "Request permissions");
-            ActivityCompat.requestPermissions(activity, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 100);
-            Toast.makeText(activity, "Location permission granted", Toast.LENGTH_SHORT).show();
+         //   ActivityCompat.requestPermissions(activity, new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, 100);
+          //  Toast.makeText(activity, "Location permission granted", Toast.LENGTH_SHORT).show();
             return;
         }
         Location location = LocationServices.getFusedLocationProviderClient(this).getLastLocation().getResult();

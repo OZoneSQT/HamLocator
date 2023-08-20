@@ -16,6 +16,6 @@
         android:background="#00000000"
         android:contentDescription="@string/appwidget_text"
         android:text="@string/appwidget_text"
-        android:textSize="24sp"
+        android:textSize="20sp"
         android:textStyle="bold|italic" />
 </RelativeLayout>

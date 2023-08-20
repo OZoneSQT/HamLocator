@@ -3,79 +3,61 @@ package dk.seahawk.hamlocator.widget;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
-import android.content.Intent;
-import android.location.Location;
-import android.os.Handler;
+import android.util.Log;
 import android.widget.RemoteViews;
-import android.os.ResultReceiver;
+import android.os.Handler;
 
 import dk.seahawk.hamlocator.R;
-import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
-import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
-import dk.seahawk.hamlocator.service.HamLocatorService;
+
 
 /**
  * Implementation of App Widget functionality.
  */
 public class HamLocatorWidget extends AppWidgetProvider {
 
-    private ResultReceiver mReceiver;
+    private static final int UPDATE_INTERVAL = 100; // 1 second
+    private Handler handler = new Handler();
+    private Runnable updateRunnable;
+    private int counter = 0;
+    private int MAX_COUNTER = 99999;
     private String TAG = "HamLocatorWidget";
-    private Context context;
-    private AppWidgetManager appWidgetManager;
-    private int appWidgetId;
-
-    private String ACTION_LOCATION_UPDATE = "dk.seahawk.hamlocator.widget.hamLocatorWidget.ACTION_LOCATION_UPDATE";
-    private String EXTRA_LOCATION = "dk.seahawk.hamlocator.widget.hamLocatorWidget.EXTRA_LOCATION";
-
-
-    static void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
-
-        //TODO GET LOCATION FROM SERVICE
-        //Location location =
-        //GridAlgorithmInterface gridAlgorithmInterface = new GridAlgorithm();
-        //String grid = gridAlgorithmInterface.getGridLocation(location);
-
-        CharSequence widgetText = context.getString(R.string.appwidget_text);
-        // Construct the RemoteViews object
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
-        views.setTextViewText(R.id.appwidget_text, widgetText);
-
-        // Instruct the widget manager to update the widget
-        appWidgetManager.updateAppWidget(appWidgetId, views);
-    }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
-        this.appWidgetManager = appWidgetManager;
-        this.context = context;
 
-        // Create a ResultReceiver object
-        mReceiver = new ResultReceiver(new Handler());
+        // Create the initial updateRunnable
+        Log.d(TAG, "onUpdate() - Create the initial updateRunnable");
 
-        // Start the IntentService
-        Intent intent = new Intent(context, HamLocatorService.class);
-        intent.putExtra("receiver", mReceiver);
-        context.startService(intent);
+        updateRunnable = new Runnable() {
+            @Override
+            public void run() {
 
-        // There may be multiple widgets active, so update all of them
-        for (int appWidgetId : appWidgetIds) {
-            this.appWidgetId = appWidgetId;
-            updateAppWidget(context, appWidgetManager, appWidgetId);
-        }
+                // Update the counter and reset if it reaches the maximum value
+                Log.d(TAG, "run() - Update the counter and reset if it reaches the maximum value");
+                counter = (counter + 1) % (MAX_COUNTER + 1);
+
+                // Update the widget UI
+                Log.d(TAG, "run() - Update the widget UI");
+                RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
+                remoteViews.setTextViewText(R.id.appwidget_text, String.valueOf(counter));
+                appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+
+                // Schedule the next update
+                Log.d(TAG, "run() - Schedule the next update");
+                handler.postDelayed(this, UPDATE_INTERVAL);
+            }
+        };
+
+        // Start the initial update
+        Log.d(TAG, "onUpdate() - Start the initial update");
+        handler.post(updateRunnable);
     }
 
     @Override
-    public void onReceive(Context context, Intent intent) {
-        if (intent.getAction().equals(ACTION_LOCATION_UPDATE)) {
-            // Get the location from the intent
-            Location location = intent.getParcelableExtra(EXTRA_LOCATION);
-
-            // Update the text view with the location
-            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
-            views.setTextViewText(R.id.textView, location.toString());
-            appWidgetManager.updateAppWidget(appWidgetId, views);
-        }
+    public void onDisabled(Context context) {
+        // Remove the update runnable when the last widget is removed
+        Log.d(TAG, "onDisabled() - Remove the update runnable when the last widget is removed");
+        handler.removeCallbacks(updateRunnable);
     }
 
 }
