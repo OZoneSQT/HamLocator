@@ -16,4 +16,7 @@
     <string name="lon_na">lon: na</string>
     <string name="jid_na">jid: na</string>
     <string name="accuracy_na">Accuracy: na</string>
+    <string name="appwidget_text">GRID</string>
+    <string name="add_widget">Add widget</string>
+    <string name="app_widget_description">This is an app widget description</string>
 </resources>
