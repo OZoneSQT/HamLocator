@@ -1,13 +1,25 @@
 package dk.seahawk.hamlocator.widget;
 
+import android.Manifest;
+import android.app.Activity;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.location.Location;
 import android.util.Log;
 import android.widget.RemoteViews;
 import android.os.Handler;
 
+import androidx.core.app.ActivityCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+
 import dk.seahawk.hamlocator.R;
+import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
+import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
+import dk.seahawk.hamlocator.util.ActivityHolder;
 
 
 /**
@@ -15,18 +27,39 @@ import dk.seahawk.hamlocator.R;
  */
 public class HamLocatorWidget extends AppWidgetProvider {
 
-    private static final int UPDATE_INTERVAL = 100; // 1 second
+    /*
+     * LocationRequest
+     *
+     * https://developers.google.com/android/reference/com/google/android/gms/location/LocationRequest
+     * setFastestInterval(long millis) - Explicitly set the fastest interval for location updates, in milliseconds.
+     * setInterval(long millis) - Set the desired interval for active location updates, in milliseconds.
+     * setPriority(int) Options:
+     *                          PRIORITY_HIGH_ACCURACY (100) - Used to request the most accurate locations available.
+     *                          PRIORITY_BALANCED_POWER_ACCURACY (102) - Used to request "block" level accuracy.
+     *                          PRIORITY_LOW_POWER (104) - Used to request "city" level accuracy.
+     *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
+     */
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
+
+
+    // Counter
+    private static final int UPDATE_INTERVAL = 1000; // 1 second
     private Handler handler = new Handler();
     private Runnable updateRunnable;
     private int counter = 0;
     private int MAX_COUNTER = 99999;
     private String TAG = "HamLocatorWidget";
 
+
+    // Util
+    private Activity activity;
+
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
 
         // Create the initial updateRunnable
         Log.d(TAG, "onUpdate() - Create the initial updateRunnable");
+        initWidget();
 
         updateRunnable = new Runnable() {
             @Override
@@ -63,6 +96,38 @@ public class HamLocatorWidget extends AppWidgetProvider {
         // Remove the update runnable when the last widget is removed
         Log.d(TAG, "onDisabled() - Remove the update runnable when the last widget is removed");
         handler.removeCallbacks(updateRunnable);
+    }
+
+    private void initWidget() {
+        ActivityHolder activityHolder = ActivityHolder.getInstance();
+        activity = activityHolder.getActivity();
+    }
+
+
+    /**
+     *  Location
+     */
+    private String locationHandler() {
+        Log.d(TAG, "locationHandler()");
+
+        FusedLocationProviderClient fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(activity);
+        GridAlgorithmInterface gridAlgorithmInterface = new GridAlgorithm();
+        Location location = null;
+
+        if (ActivityCompat.checkSelfPermission(activity.getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) !=
+                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
+                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "Permission not granted ");
+            ActivityCompat.requestPermissions(activity,
+                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                    LOCATION_PERMISSION_REQUEST_CODE);
+
+            location = fusedLocationProviderClient.getLastLocation().getResult();
+            Log.d(TAG, "location == null " + (location == null));
+        }
+
+        assert location != null;
+        return gridAlgorithmInterface.getGridLocation(location);
     }
 
 }
