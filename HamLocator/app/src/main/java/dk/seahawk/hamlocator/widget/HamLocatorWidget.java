@@ -7,9 +7,9 @@ import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.RemoteViews;
-import android.os.Handler;
 
 import androidx.core.app.ActivityCompat;
 
@@ -42,7 +42,6 @@ public class HamLocatorWidget extends AppWidgetProvider {
      *                          PRIORITY_NO_POWER (105) - Used to request the best accuracy possible with zero additional power consumption.
      */
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 100;
-
 
     // Counter
     private static final int UPDATE_INTERVAL = 1000; // 1 second
@@ -81,9 +80,11 @@ public class HamLocatorWidget extends AppWidgetProvider {
 
                 // Update the widget UI
                 Log.d(TAG, "run() - Update the widget UI");
-                RemoteViews remoteViewsX = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
-                remoteViewsX.setTextViewText(R.id.appwidget_text, locationHandler());
-                appWidgetManager.updateAppWidget(appWidgetIds, remoteViewsX);
+                RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
+                remoteViews.setTextViewText(R.id.appwidget_text, locationHandler());
+                remoteViews.setTextViewText(R.id.appwidget_header, context.getString(R.string.app_name));
+
+                appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
 
                 // Schedule the next update
                 Log.d(TAG, "run() - Schedule the next update");
@@ -100,7 +101,6 @@ public class HamLocatorWidget extends AppWidgetProvider {
     public void onEnabled(Context context) {
         Log.d(TAG, "onEnabled() - Widget is enabled");
         initWidget();
-        initStaticUI();
     }
 
     @Override
@@ -111,17 +111,10 @@ public class HamLocatorWidget extends AppWidgetProvider {
 
 
     /**
-     *  UI
-     */
-    private void initStaticUI() {
-
-    }
-
-
-    /**
      *  Util
      */
     private void initWidget() {
+        Log.d(TAG, "initWidget()");
         ActivityHolder activityHolder = ActivityHolder.getInstance();
         activity = activityHolder.getActivity();
     }
@@ -132,6 +125,7 @@ public class HamLocatorWidget extends AppWidgetProvider {
      */
     private String locationHandler() {
         Log.d(TAG, "locationHandler()");
+        if (activity == null) initWidget();
 
         try {
             if (ActivityCompat.checkSelfPermission(activity.getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) !=

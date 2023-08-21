@@ -3,7 +3,7 @@
     <string name="alt">"altitude: "</string>
     <string name="lon">"longitude: "</string>
     <string name="lat">"latitude: "</string>
-    <string name="hamlocator_by_oz1sqt">Hamlocator by OZ1SQT</string>
+    <string name="hamlocator_by_oz1sqt">HamLocator by OZ1SQT</string>
     <string name="dd">DD</string>
     <string name="seahawk_dk">Seahawk.dk</string>
     <string name="dms">DMS</string>
@@ -18,5 +18,5 @@
     <string name="accuracy_na">Accuracy: na</string>
     <string name="appwidget_text">GRID</string>
     <string name="add_widget">Add widget</string>
-    <string name="app_widget_description">This is an app widget description</string>
+    <string name="app_widget_description">JID-Grid locator</string>
 </resources>
