@@ -1,6 +1,5 @@
 package dk.seahawk.hamlocator.algorithm;
 
-import android.annotation.SuppressLint;
 
 /**
  * Convert GPS coordinates from DD (Decimal degrees (google maps coordinates)) to DMS (Degrees Minutes Seconds (map coordinates))

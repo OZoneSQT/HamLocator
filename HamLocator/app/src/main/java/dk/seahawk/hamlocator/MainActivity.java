@@ -1,10 +1,15 @@
 package dk.seahawk.hamlocator;
 
-import static com.google.android.gms.location.LocationRequest.*;
+import static com.google.android.gms.location.LocationRequest.create;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.Location;
 import android.net.Uri;
 import android.os.Bundle;
@@ -44,16 +49,8 @@ import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
 import dk.seahawk.hamlocator.util.Unit;
 
-/*
- *  Log.x(Tag, msg) / Log.x(Tag, msg, tw)
- *  a = Assert
- *  d = Debug
- *  e = Error
- *  i = Info
- *  v = Verbose
- *  w = Warn
- */
-public class MainActivity extends AppCompatActivity {
+
+public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     // Location request
     private FusedLocationProviderClient fusedLocationProviderClient;
@@ -91,6 +88,12 @@ public class MainActivity extends AppCompatActivity {
     // Sign in
     private static final int RC_SIGN_IN = 1000;
 
+    // Environment sensors
+    private SensorManager sensorManager;
+    private Sensor temperatureSensor, humiditySensor, barometerSensor;
+    private String temperatureValue = "", humidityValue = "", barometerValue = "";
+    private static final int REQUEST_BODY_SENSORS = 702;
+
 
     /**
      *  Life cycles
@@ -105,6 +108,7 @@ public class MainActivity extends AppCompatActivity {
         timeHandler();
         initLocationUI();
         locationHandler();
+        initSensors();
     }
 
     @Override
@@ -112,6 +116,7 @@ public class MainActivity extends AppCompatActivity {
         super.onStart();
         startLocationUpdates();
         handler.post(updateTimeRunnable);
+        enableSensors();
     }
 
     @Override
@@ -119,6 +124,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         startLocationUpdates();
         handler.post(updateTimeRunnable);
+        enableSensors();
     }
 
     @Override
@@ -126,6 +132,7 @@ public class MainActivity extends AppCompatActivity {
         super.onPause();
         stopLocationUpdates();
         handler.removeCallbacks(updateTimeRunnable);
+        disableSensors();
     }
 
     @Override
@@ -133,6 +140,7 @@ public class MainActivity extends AppCompatActivity {
         super.onStop();
         stopLocationUpdates();
         handler.removeCallbacks(updateTimeRunnable);
+        disableSensors();
     }
 
 
@@ -232,16 +240,29 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        // Location
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, start location updates
                 startLocationUpdates();
             } else {
-                // When permission are denied, Display toast
-                Log.d(TAG, "Fail: settingsCheck, Permission denied");
-                Toast.makeText(this, "Permission denied", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Fail: location settingsCheck, Permission denied");
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_LONG).show();
             }
         }
+
+        // Body sensors
+        if (requestCode == REQUEST_BODY_SENSORS) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                    && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
+                enableSensors();
+            } else {
+                Log.e(TAG, "Fail: body sensors settingsCheck, Permission denied");
+                Toast.makeText(this, "Sensor permission denied", Toast.LENGTH_LONG).show();
+            }
+        }
+
     }
 
     private void startLocationUpdates() {
@@ -263,6 +284,57 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "Stop location updates");
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
+
+
+    /**
+     *  Body sensors
+     */
+    // https://developer.android.com/guide/topics/sensors/sensors_environment
+    private void initSensors() {
+        int permission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS);
+        if (permission != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.BODY_SENSORS}, REQUEST_BODY_SENSORS);
+        }
+
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        temperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
+        humiditySensor = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
+        barometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+    }
+
+    private void enableSensors() {
+        sensorManager.registerListener(this, temperatureSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, humiditySensor, SensorManager.SENSOR_DELAY_NORMAL);
+        sensorManager.registerListener(this, barometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    private void disableSensors() {
+        sensorManager.unregisterListener(this);
+    }
+
+    @SuppressLint("DefaultLocale")
+    @Override
+    public void onSensorChanged(SensorEvent event) {
+        Sensor sensor = event.sensor;
+
+        if (sensor.getType() == Sensor.TYPE_AMBIENT_TEMPERATURE) {
+            float temp = event.values[0];
+            if (unit.isUsingFahrenheit()) {
+                // °C -> °F
+                temp = ( (temp * ( 9 / 7 ) ) + 32 );
+                temperatureValue = String.format("%.2f°F", temp);    // °F"
+            } else {
+                temperatureValue = String.format("%.2f°C", temp);    // °C"
+            }
+        } else if (sensor.getType() == Sensor.TYPE_RELATIVE_HUMIDITY) {
+            humidityValue = String.format("%.2f%%", event.values[0]);       // %
+        } else if (sensor.getType() == Sensor.TYPE_PRESSURE) {
+            barometerValue = String.format("%.2fhPa", event.values[0]);     // hPa
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {}
 
 
     /**
@@ -358,15 +430,18 @@ public class MainActivity extends AppCompatActivity {
             // Add content to message
             Log.d(TAG,  "Preparing mail");
             String[] TO = { userEmail };
-            String subject = "HamLocator: " + jidField.getText() + ", utc:" + utcTimeField.getText();
+            String subject = "HamLocator:  " + jidField.getText() + ", utc:" + utcTimeField.getText();
             String body =    "Saved location from Android app \"HamLocator\":" +
-                       "\n    JID-grid:   " + jidField.getText() +
-                       "\n    DD:         " + lonField.getText() + " " + latField.getText() +
-                       "\n    DMS:        " + nsLonField.getText() + " " + ewLatField.getText() +
-                       "\n    Altitude    " + altField.getText() + unit.getUnit() +
-                       "\n    Accuracy    " + accField.getText() + unit.getUnit() +
-                       "\n    Local time: " + localTimeField.getText() +
-                       "\n    UTC time:   " + utcTimeField.getText();
+                       "\n    JID-grid:    " + jidField.getText() +
+                       "\n    DD:          " + lonField.getText() + " " + latField.getText() +
+                       "\n    DMS:         " + nsLonField.getText() + " " + ewLatField.getText() +
+                       "\n    Altitude     " + altField.getText() + unit.getUnit() +
+                       "\n    Accuracy     " + accField.getText() + unit.getUnit() +
+                       "\n    Local time:  " + localTimeField.getText() +
+                       "\n    UTC time:    " + utcTimeField.getText() +
+                       "\n    Temperature: " + temperatureValue +
+                       "\n    Hygrometer:  " + humidityValue +
+                       "\n    Barometer:   " + barometerValue;
 
             // Build message
             Log.d(TAG, "Building mail");

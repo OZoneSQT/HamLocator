@@ -37,4 +37,20 @@ public class Unit {
         return unit;
     }
 
+    public boolean isUsingFahrenheit() {
+        Locale locale = Locale.getDefault();
+        String countryCode = locale.getCountry();
+
+        // List of countries where Fahrenheit is commonly used
+        String[] fahrenheitCountries = {"US", "BS", "BZ", "KY"};
+
+        for (String fahrenheitCountry : fahrenheitCountries) {
+            if (countryCode.equalsIgnoreCase(fahrenheitCountry)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 }
