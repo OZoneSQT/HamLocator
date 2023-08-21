@@ -28,6 +28,8 @@ public class GridAlgorithm implements GridAlgorithmInterface {
     }
 
     public String getGridLocation(Location location) {
+        if(location == null) return "ERROR";
+
         this.longitude = location.getLongitude();
         this.latitude = location.getLatitude();
         parseLocation();

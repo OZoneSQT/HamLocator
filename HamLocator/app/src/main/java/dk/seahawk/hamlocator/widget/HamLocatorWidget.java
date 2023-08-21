@@ -16,6 +16,8 @@ import androidx.core.app.ActivityCompat;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationServices;
 
+import java.util.Arrays;
+
 import dk.seahawk.hamlocator.R;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithm;
 import dk.seahawk.hamlocator.algorithm.GridAlgorithmInterface;
@@ -46,8 +48,8 @@ public class HamLocatorWidget extends AppWidgetProvider {
     private static final int UPDATE_INTERVAL = 1000; // 1 second
     private Handler handler = new Handler();
     private Runnable updateRunnable;
-    private int counter = 0;
-    private int MAX_COUNTER = 99999;
+    // private int counter = 0;
+    // private int MAX_COUNTER = 99999;
     private String TAG = "HamLocatorWidget";
 
 
@@ -59,12 +61,13 @@ public class HamLocatorWidget extends AppWidgetProvider {
 
         // Create the initial updateRunnable
         Log.d(TAG, "onUpdate() - Create the initial updateRunnable");
-        initWidget();
+        if (activity == null) initWidget();
 
         updateRunnable = new Runnable() {
             @Override
             public void run() {
 
+            /*
                 // Update the counter and reset if it reaches the maximum value
                 Log.d(TAG, "run() - Update the counter and reset if it reaches the maximum value");
                 counter = (counter + 1) % (MAX_COUNTER + 1);
@@ -74,6 +77,13 @@ public class HamLocatorWidget extends AppWidgetProvider {
                 RemoteViews remoteViews = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
                 remoteViews.setTextViewText(R.id.appwidget_text, String.valueOf(counter));
                 appWidgetManager.updateAppWidget(appWidgetIds, remoteViews);
+             */
+
+                // Update the widget UI
+                Log.d(TAG, "run() - Update the widget UI");
+                RemoteViews remoteViewsX = new RemoteViews(context.getPackageName(), R.layout.ham_locator_widget);
+                remoteViewsX.setTextViewText(R.id.appwidget_text, locationHandler());
+                appWidgetManager.updateAppWidget(appWidgetIds, remoteViewsX);
 
                 // Schedule the next update
                 Log.d(TAG, "run() - Schedule the next update");
@@ -88,16 +98,29 @@ public class HamLocatorWidget extends AppWidgetProvider {
 
     @Override
     public void onEnabled(Context context) {
-        // Enter relevant functionality for when the first widget is created
+        Log.d(TAG, "onEnabled() - Widget is enabled");
+        initWidget();
+        initStaticUI();
     }
 
     @Override
     public void onDisabled(Context context) {
-        // Remove the update runnable when the last widget is removed
-        Log.d(TAG, "onDisabled() - Remove the update runnable when the last widget is removed");
+        Log.d(TAG, "onDisabled() - Widget is removed");
         handler.removeCallbacks(updateRunnable);
     }
 
+
+    /**
+     *  UI
+     */
+    private void initStaticUI() {
+
+    }
+
+
+    /**
+     *  Util
+     */
     private void initWidget() {
         ActivityHolder activityHolder = ActivityHolder.getInstance();
         activity = activityHolder.getActivity();
@@ -110,23 +133,27 @@ public class HamLocatorWidget extends AppWidgetProvider {
     private String locationHandler() {
         Log.d(TAG, "locationHandler()");
 
-        FusedLocationProviderClient fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(activity);
-        GridAlgorithmInterface gridAlgorithmInterface = new GridAlgorithm();
-        Location location = null;
-
-        if (ActivityCompat.checkSelfPermission(activity.getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) !=
-                PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
-                Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            Log.d(TAG, "Permission not granted ");
-            ActivityCompat.requestPermissions(activity,
-                    new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
-                    LOCATION_PERMISSION_REQUEST_CODE);
-
-            location = fusedLocationProviderClient.getLastLocation().getResult();
-            Log.d(TAG, "location == null " + (location == null));
+        try {
+            if (ActivityCompat.checkSelfPermission(activity.getApplicationContext(), Manifest.permission.ACCESS_FINE_LOCATION) !=
+                    PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(activity.getApplicationContext(),
+                    Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                Log.d(TAG, "Permission not granted ");
+                ActivityCompat.requestPermissions(activity,
+                        new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION},
+                        LOCATION_PERMISSION_REQUEST_CODE);
+                Log.d(TAG, "Permission granted ");
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "locationHandler() -> Permission check\n" + e.getMessage() + "\n" + Arrays.toString(e.getStackTrace()));
         }
 
+        FusedLocationProviderClient fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(activity);
+        GridAlgorithmInterface gridAlgorithmInterface = new GridAlgorithm();
+        Location location = fusedLocationProviderClient.getLastLocation().getResult();
+
+        Log.d(TAG, "location == null " + (location == null));
         assert location != null;
+
         return gridAlgorithmInterface.getGridLocation(location);
     }
 
