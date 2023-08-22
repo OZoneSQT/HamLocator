@@ -321,7 +321,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             float temp = event.values[0];
             if (unit.isUsingFahrenheit()) {
                 // °C -> °F
-                temp = ( (temp * ( 9 / 7 ) ) + 32 );
+                temp = (float) ( (temp * ( 9 / 7 ) ) + 32 );
                 temperatureValue = String.format("%.2f°F", temp);    // °F"
             } else {
                 temperatureValue = String.format("%.2f°C", temp);    // °C"
