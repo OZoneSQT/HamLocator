@@ -41,6 +41,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.TimeZone;
 
 import dk.seahawk.hamlocator.algorithm.CoordinateConverter;
@@ -91,6 +92,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // Environment sensors
     private SensorManager sensorManager;
     private Sensor temperatureSensor, humiditySensor, barometerSensor;
+    private boolean tempSensor = false, humSensor= false, barSensor = false;
     private String temperatureValue = "", humidityValue = "", barometerValue = "";
     private static final int REQUEST_BODY_SENSORS = 702;
 
@@ -102,6 +104,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Log.d(TAG, "onCreate()");
+
         setContentView(R.layout.activity_main);
 
         initStaticUI();
@@ -114,6 +118,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onStart() {
         super.onStart();
+        Log.d(TAG, "onStart()");
         startLocationUpdates();
         handler.post(updateTimeRunnable);
         enableSensors();
@@ -122,6 +127,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG, "onResume()");
         startLocationUpdates();
         handler.post(updateTimeRunnable);
         enableSensors();
@@ -130,6 +136,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onPause() {
         super.onPause();
+        Log.d(TAG, "onPause()");
         stopLocationUpdates();
         handler.removeCallbacks(updateTimeRunnable);
         disableSensors();
@@ -138,6 +145,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onStop() {
         super.onStop();
+        Log.d(TAG, "onStop()");
         stopLocationUpdates();
         handler.removeCallbacks(updateTimeRunnable);
         disableSensors();
@@ -181,7 +189,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      *  Location
      */
     private void locationHandler() {
-        Log.d(TAG, "init location handler");
+        Log.d(TAG, "locationHandler() - init location handler");
 
         // Initialize Maidenhead algorithm
         gridAlgorithmInterface = new GridAlgorithm();
@@ -226,7 +234,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void permissionCheck() {
-        Log.d(TAG, "Permission check");
+        Log.d(TAG, "permissionCheck() - Location");
 
         // Check for location permission and request if not granted
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -240,9 +248,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        Log.d(TAG, "startLocationUpdates()");
 
         // Location
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            Log.d(TAG, "request location permission");
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, start location updates
                 startLocationUpdates();
@@ -254,6 +264,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         // Body sensors
         if (requestCode == REQUEST_BODY_SENSORS) {
+            Log.d(TAG, "request sensor permission");
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
                     && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
                 enableSensors();
@@ -262,11 +273,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 Toast.makeText(this, "Sensor permission denied", Toast.LENGTH_LONG).show();
             }
         }
-
     }
 
     private void startLocationUpdates() {
-        Log.d(TAG, "Start location updates");
+        Log.d(TAG, "startLocationUpdates()");
 
         locationRequest = create();
         locationRequest.setPriority(Priority.PRIORITY_HIGH_ACCURACY);
@@ -281,7 +291,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void stopLocationUpdates() {
-        Log.d(TAG, "Stop location updates");
+        Log.d(TAG, "stopLocationUpdates()");
         fusedLocationProviderClient.removeLocationUpdates(locationCallback);
     }
 
@@ -291,30 +301,70 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      */
     // https://developer.android.com/guide/topics/sensors/sensors_environment
     private void initSensors() {
-        int permission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS);
-        if (permission != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.BODY_SENSORS}, REQUEST_BODY_SENSORS);
+        Log.d(TAG, "initSensors()");
+        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        List<Sensor> sensorList = sensorManager.getSensorList(Sensor.TYPE_ALL);
+
+        if (sensorList.isEmpty()) {
+            Log.d(TAG, "No sensors available");
+        } else {
+            for (Sensor sensor : sensorList) {
+                if (sensor.getName().equalsIgnoreCase("Thermometer Sensor")) {
+                    tempSensor = true;
+                    break;
+                }
+                Log.d(TAG, "Thermometer Sensor is available == " + tempSensor);
+            }
+
+            for (Sensor sensor : sensorList) {
+                if (sensor.getName().equalsIgnoreCase("Hygrometer Sensor")) {
+                    humSensor = true;
+                    break;
+                }
+                Log.d(TAG, "Hygrometer Sensor is available == " + humSensor);
+            }
+
+            for (Sensor sensor : sensorList) {
+                if (sensor.getName().equalsIgnoreCase("Barometer Sensor")) {
+                    barSensor = true;
+                    break;
+                }
+                Log.d(TAG, "Barometer Sensor is available == " + barSensor);
+            }
         }
 
-        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        temperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
-        humiditySensor = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
-        barometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        if ( tempSensor || humSensor || barSensor ) {
+            Log.d(TAG, "checkSelfPermission()");
+
+            //TODO maybe move up, to before initialization of sensor manager
+            int permission = ContextCompat.checkSelfPermission(this, android.Manifest.permission.BODY_SENSORS);
+            if (permission != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this, new String[]{android.Manifest.permission.BODY_SENSORS}, REQUEST_BODY_SENSORS);
+            }
+
+            Log.d(TAG, "set available sensors");
+            if (tempSensor) temperatureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_AMBIENT_TEMPERATURE);
+            if (humSensor) humiditySensor = sensorManager.getDefaultSensor(Sensor.TYPE_RELATIVE_HUMIDITY);
+            if (barSensor) barometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
+        }
     }
 
     private void enableSensors() {
-        sensorManager.registerListener(this, temperatureSensor, SensorManager.SENSOR_DELAY_NORMAL);
-        sensorManager.registerListener(this, humiditySensor, SensorManager.SENSOR_DELAY_NORMAL);
-        sensorManager.registerListener(this, barometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        Log.d(TAG, "enableSensors()");
+        if (tempSensor) sensorManager.registerListener(this, temperatureSensor, SensorManager.SENSOR_DELAY_NORMAL);
+        if (humSensor) sensorManager.registerListener(this, humiditySensor, SensorManager.SENSOR_DELAY_NORMAL);
+        if (barSensor) sensorManager.registerListener(this, barometerSensor, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
     private void disableSensors() {
+        Log.d(TAG, "disableSensors()");
         sensorManager.unregisterListener(this);
     }
 
     @SuppressLint("DefaultLocale")
     @Override
     public void onSensorChanged(SensorEvent event) {
+        Log.d(TAG, "onSensorChanged()");
         Sensor sensor = event.sensor;
 
         if (sensor.getType() == Sensor.TYPE_AMBIENT_TEMPERATURE) {
@@ -341,7 +391,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
      * Time
      */
     private void timeHandler() {
-        Log.d(TAG, "init time handler");
+        Log.d(TAG, "timeHandler()");
 
         // Initialize view, Location
         localTimeField = findViewById(R.id.txt_localTime);
@@ -359,7 +409,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @SuppressLint({"SetTextI18n", "SimpleDateFormat"})
     private void updateTimes() {
-        Log.d(TAG, "Update time");
+        Log.d(TAG, "updateTimes()");
 
         String format = "dd-MM-yyyy HH:mm:ss";
 
@@ -388,7 +438,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     // https://developer.android.com/training/sign-in
     // https://github.com/easy-tuto/MyLoginApp/tree/login_with_google (example)
     private void signIn() {
-        Log.d(TAG, "Sign in");
+        Log.d(TAG, "signIn()");
 
         GoogleSignInOptions googleSignInOptions = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).requestEmail().build();
         GoogleSignInClient googleSignInClient = GoogleSignIn.getClient(this, googleSignInOptions);
@@ -400,6 +450,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        Log.d(TAG, "onActivityResult()");
+
         if (requestCode == RC_SIGN_IN) {
             Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(data);
 
@@ -439,9 +491,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                        "\n    Accuracy     " + accField.getText() + unit.getUnit() +
                        "\n    Local time:  " + localTimeField.getText() +
                        "\n    UTC time:    " + utcTimeField.getText() +
-                       "\n    Temperature: " + temperatureValue +
-                       "\n    Hygrometer:  " + humidityValue +
-                       "\n    Barometer:   " + barometerValue;
+                                               sensorVal();
 
             // Build message
             Log.d(TAG, "Building mail");
@@ -460,6 +510,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             Toast.makeText(getApplicationContext(),"ERROR: Location have NOT been send", Toast.LENGTH_LONG).show();
             Log.e(TAG, "Error in \"sendEmail()\": \n" + e.getMessage());
         }
+    }
+
+    private String sensorVal() {
+        // Sensor values
+        Log.d(TAG, "sensorVal()");
+        String temp = "";
+        String hum = "";
+        String bar = "";
+        if (tempSensor) temp = "\n    Temperature: " + temperatureValue;
+        if (humSensor) hum = "\n    Hygrometer:  " + humidityValue;
+        if (barSensor) bar = "\n    Barometer:   " + barometerValue;
+
+        return temp + hum + bar;
     }
 
 }
